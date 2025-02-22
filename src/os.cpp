@@ -58,7 +58,6 @@ os::os()
     tcgetattr(STDIN_FILENO, &term_attributes);
     auto new_term_attributes = term_attributes;
     new_term_attributes.c_lflag &= ~(ICANON | ISIG | ECHO | IEXTEN);
-    new_term_attributes.c_iflag &= ~(IXON);
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &new_term_attributes);
 }
 
