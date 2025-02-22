@@ -168,7 +168,7 @@ namespace viewer {
                     vtout.write_double_height(name + "\033[K");
                     vtout.cup(origin_row + 2, origin_column + 8);
                     vtout.ls1();
-                    vtout.write(morse);
+                    vtout.write_double_width(morse);
                     vtout.ls0();
                     vtout.el();
                     vtout.cup(origin_row + 4, narrow_origin_column + 16);
