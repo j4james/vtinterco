@@ -134,7 +134,8 @@ void quiz::run(const capabilities& caps)
             _display_tick(answer_rows[answer_index.value()] - 1, tick_column, false);
             _display_tick(answer_rows[expected_index.value()] - 1, tick_column, true);
             vtout.flush();
-            if (os::getch() == 27) return;
+            const auto ch = os::getch();
+            if (ch == 27 || ch == 127) return;
         }
     }
 
@@ -192,7 +193,7 @@ std::optional<int> quiz::_read_answer(const std::vector<int> answers) const
     auto index = std::optional<int>{};
     while (!index) {
         const auto ch = os::getch();
-        if (ch == 27)
+        if (ch == 27 || ch == 127)
             break;
         switch (_quiz_type) {
             case type::letters:

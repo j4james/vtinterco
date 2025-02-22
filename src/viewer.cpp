@@ -125,7 +125,8 @@ namespace viewer {
             auto ch = std::toupper(os::getch());
             if (ch == 27) {
                 break;
-            } else if (ch == 127 && count > 0) {
+            } else if (ch == 127) {
+                if (count <= 0) break;
                 count--;
                 letters[count] = ' ';
             } else if ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9' && count != letters.size())) {
