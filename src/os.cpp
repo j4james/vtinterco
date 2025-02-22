@@ -4,6 +4,8 @@
 
 #include "os.h"
 
+#include "debug.h"
+
 #ifdef _WIN32
 
 #include <Windows.h>
@@ -34,11 +36,13 @@ os::~os()
 
 int os::getch()
 {
-    char ch;
-    DWORD chars_read = 0;
-    HANDLE input_handle = GetStdHandle(STD_INPUT_HANDLE);
-    ReadConsoleA(input_handle, &ch, 1, &chars_read, NULL);
-    return chars_read == 1 ? static_cast<int>(ch) : -1;
+    return debug::getch([] {
+        char ch;
+        DWORD chars_read = 0;
+        HANDLE input_handle = GetStdHandle(STD_INPUT_HANDLE);
+        ReadConsoleA(input_handle, &ch, 1, &chars_read, NULL);
+        return chars_read == 1 ? static_cast<int>(ch) : -1;
+    });
 }
 
 #endif
@@ -68,7 +72,9 @@ os::~os()
 
 int os::getch()
 {
-    return getchar();
+    return debug::getch([] {
+        return getchar();
+    });
 }
 
 #endif

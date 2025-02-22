@@ -5,6 +5,7 @@
 #include "viewer.h"
 
 #include "capabilities.h"
+#include "debug.h"
 #include "flags.h"
 #include "os.h"
 #include "signals.h"
@@ -15,6 +16,7 @@ namespace viewer {
 
     void view_alphabet_flags(const capabilities& caps)
     {
+        debug::clear();
         vtout.cup();
         vtout.ed();
 
@@ -47,6 +49,7 @@ namespace viewer {
 
     void view_numeral_pennants(const capabilities& caps)
     {
+        debug::clear();
         vtout.cup();
         vtout.ed();
 
@@ -79,6 +82,7 @@ namespace viewer {
 
     void lookup_letter_sequence(const capabilities& caps)
     {
+        debug::clear();
         vtout.cup();
         vtout.ed();
 

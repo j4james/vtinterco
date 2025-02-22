@@ -4,6 +4,8 @@
 
 #include "vt.h"
 
+#include "debug.h"
+
 #include <chrono>
 #include <thread>
 
@@ -233,6 +235,8 @@ void vt_stream::write_double_height(const std::string_view s)
 void vt_stream::flush()
 {
     if (_buffer_index) {
+        if (this == &vtout)
+            debug::record({&_buffer[0], (size_t) _buffer_index});
         _stream.write(&_buffer[0], _buffer_index);
         _stream.flush();
         _buffer_index = 0;

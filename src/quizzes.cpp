@@ -5,6 +5,7 @@
 #include "quizzes.h"
 
 #include "capabilities.h"
+#include "debug.h"
 #include "flags.h"
 #include "os.h"
 #include "utils.h"
@@ -67,6 +68,7 @@ void quiz::run(const capabilities& caps)
     const auto question_count = 10;
     auto correct_count = 0;
     for (auto i = 0; i < question_count; i++) {
+        debug::clear();
         vtout.cup();
         vtout.ed();
 
@@ -139,6 +141,7 @@ void quiz::run(const capabilities& caps)
         }
     }
 
+    debug::clear();
     vtout.cup();
     vtout.ed();
 

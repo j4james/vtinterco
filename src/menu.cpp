@@ -5,6 +5,7 @@
 #include "menu.h"
 
 #include "capabilities.h"
+#include "debug.h"
 #include "os.h"
 #include "vt.h"
 
@@ -17,6 +18,7 @@ menu::menu(const capabilities& caps, const std::initializer_list<std::string_vie
 
 std::optional<int> menu::get_choice() const
 {
+    debug::clear();
     vtout.cup();
     vtout.ed();
 
