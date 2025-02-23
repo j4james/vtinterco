@@ -104,6 +104,15 @@ void quiz::run(const capabilities& caps)
             }
         }
 
+        // When you output a Sixel image on the VT340, it resets the internal
+        // line attributes of the page, so the position of the image should be
+        // relative to the single-width cursor offset, even if you started on
+        // a double-width line. But this reset isn't immediate, which can result
+        // in the image being partially rendered in the wrong position. To avoid
+        // that, we output a blank image in advance, which forces the reset to
+        // occur before we output the actual flag image.
+        vtout.sixel("");
+
         const auto flags = _signals[question_index].flags;
         if (single_flag) {
             const auto flag_row = _quiz_type == type::figures ? origin_row + 4 : origin_row;
