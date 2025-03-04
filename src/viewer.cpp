@@ -83,15 +83,15 @@ namespace viewer {
         vtout.ed();
 
         const auto half_width = caps.width / 2;
-        const auto origin_row = (caps.height - 22) / 2 + 1;
-        const auto origin_column = (half_width - 36) / 2 + 1;
+        const auto origin_row = (caps.height - 20) / 2 + 1;
+        const auto origin_column = (half_width - 25) / 2 + 1;
         const auto narrow_origin_column = origin_column * 2 - 1;
-        const auto prompt_row = origin_row + 21;
-        const auto prompt_column = origin_column + 17;
+        const auto prompt_row = origin_row + 20;
+        const auto prompt_column = origin_column + 11;
 
         vtout.scs(0, "0");
         vtout.cup(prompt_row, origin_column);
-        vtout.write_double_width("qqqqqqqqqqqqqqqu     tqqqqqqqqqqqqqq");
+        vtout.write_double_width("qqqqqqqqqu     tqqqqqqqqq");
         vtout.scs(0, "B");
         vtout.sgr({7});
         vtout.cup(prompt_row, prompt_column - 1);
@@ -109,7 +109,7 @@ namespace viewer {
         auto count = size_t{};
 
         const auto show_instructions = [&]() {
-            vtout.cup(prompt_row - 2, origin_column + 9);
+            vtout.cup(prompt_row - 2, origin_column + 3);
             vtout.write_double_width("Enter flag sequence");
         };
         const auto clear_instructions = [&]() {
@@ -145,7 +145,7 @@ namespace viewer {
                 auto morse = signal::morse({&letters[0], count});
                 auto description = signal::describe({&letters[0], count});
                 auto description_height = 0;
-                std::tie(description, description_height) = utils::wrap_text(description, 56, false, true);
+                std::tie(description, description_height) = utils::wrap_text(description, 50, false, true);
                 utils::transform_fractions(description);
 
                 if (count == 0)
@@ -154,27 +154,28 @@ namespace viewer {
                     clear_instructions();
 
                 const auto render_flag = [&](auto i) {
-                    vtout.cup(origin_row + i * 7, narrow_origin_column);
+                    const auto row_off = letters[i] >= 'A' ? 10 : 11;
+                    vtout.cup(origin_row + row_off, narrow_origin_column + i * 14);
                     const auto sixel = std::string{flags::medium(letters[i])};
                     vtout.sixel(sixel);
                 };
                 const auto erase_flag = [&](auto i) {
-                    vtout.cup(origin_row + i * 7, narrow_origin_column);
+                    vtout.cup(origin_row + 10, narrow_origin_column + i * 14);
                     vtout.sixel(i == 0 ? R"("20;1#7!120~)" : R"("20;1#7!200~)");
                 };
                 const auto render_description = [&]() {
                     vtout.sgr();
-                    vtout.cup(origin_row, origin_column + 8);
+                    vtout.cup(origin_row, origin_column);
                     vtout.write_double_height(name + "\033[K");
-                    vtout.cup(origin_row + 2, origin_column + 8);
+                    vtout.cup(origin_row + 2, origin_column);
                     vtout.ls1();
                     vtout.write_double_width(morse);
                     vtout.ls0();
                     vtout.el();
-                    vtout.cup(origin_row + 4, narrow_origin_column + 16);
+                    vtout.cup(origin_row + 4, narrow_origin_column);
                     vtout.write(description);
-                    for (auto i = description_height; i < 10; i++) {
-                        vtout.cup(origin_row + 4 + i, narrow_origin_column + 16);
+                    for (auto i = description_height; i < 6; i++) {
+                        vtout.cup(origin_row + 4 + i, narrow_origin_column);
                         vtout.el();
                     }
                 };
