@@ -6,6 +6,7 @@ set(
     "src/main.cpp"
     "src/capabilities.cpp"
     "src/coloring.cpp"
+    "src/debug.cpp"
     "src/flags.cpp"
     "src/font.cpp"
     "src/menu.cpp"
