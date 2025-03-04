@@ -129,6 +129,9 @@ namespace viewer {
                 if (count <= 0) break;
                 count--;
                 letters[count] = ' ';
+            } else if (ch == 24 || ch == 8) {
+                while (count > 0)
+                    letters[--count] = ' ';
             } else if ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9' && count != letters.size())) {
                 count = count % letters.size();
                 if (!count) letters[1] = letters[2] = ' ';
