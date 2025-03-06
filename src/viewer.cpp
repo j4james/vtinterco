@@ -90,17 +90,17 @@ namespace viewer {
         const auto origin_row = (caps.height - 20) / 2 + 1;
         const auto origin_column = (half_width - 25) / 2 + 1;
         const auto narrow_origin_column = origin_column * 2 - 1;
-        const auto prompt_row = origin_row + 20;
-        const auto prompt_column = origin_column + 11;
+        const auto prompt_row = origin_row + 19;
+        const auto prompt_column = narrow_origin_column + 23;
 
-        vtout.scs(0, "0");
-        vtout.cup(prompt_row, origin_column);
-        vtout.write_double_width("qqqqqqqqqu     tqqqqqqqqq");
-        vtout.scs(0, "B");
-        vtout.sgr({7});
-        vtout.cup(prompt_row, prompt_column - 1);
-        vtout.write("     ");
-        vtout.sgr();
+        vtout.write("\016");
+        vtout.cup(prompt_row - 1, narrow_origin_column);
+        vtout.write(std::string(50, ','));
+        vtout.cup(prompt_row, narrow_origin_column);
+        vtout.write("(####################)     (#####################)");
+        vtout.cup(prompt_row + 1, narrow_origin_column);
+        vtout.write(std::string(50, '"'));
+        vtout.write("\017");
 
         vtout.cup(origin_row);
         vtout.decdhlt();
@@ -113,8 +113,8 @@ namespace viewer {
         auto count = size_t{};
 
         const auto show_instructions = [&]() {
-            vtout.cup(prompt_row - 2, origin_column + 3);
-            vtout.write_double_width("Enter flag sequence");
+            vtout.cup(prompt_row - 2, narrow_origin_column + 15);
+            vtout.write("Enter flag sequence");
         };
         const auto clear_instructions = [&]() {
             vtout.cup(prompt_row - 2);
@@ -187,20 +187,19 @@ namespace viewer {
                     }
                 };
 
-                vtout.sgr({7});
                 if (count > last_count) {
                     vtout.cup(prompt_row, prompt_column + last_count);
-                    vtout.write_double_width({&letters[last_count], 1});
+                    vtout.write({&letters[last_count], 1});
                     render_description();
                     render_flag(last_count);
                 } else if (ch == 127) {
                     vtout.cup(prompt_row, prompt_column + count);
-                    vtout.write_double_width(" ");
+                    vtout.write(" ");
                     render_description();
                     erase_flag(count);
                 } else {
                     vtout.cup(prompt_row, prompt_column);
-                    vtout.write_double_width({&letters[0], letters.size()});
+                    vtout.write({&letters[0], letters.size()});
                     render_description();
                     erase_flag(0);
                     erase_flag(1);
