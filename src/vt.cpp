@@ -234,10 +234,14 @@ void vt_stream::write_double_height(const std::string_view s)
 
 void vt_stream::mediacopy_to_host()
 {
-    // MC: Media Copy, "2" means send graphics to host, not printer
+    setup_media_copy();
+    save_region_to_file("screenshot.six", 390, 0, 410, 40);
+}
+
+void vt_stream::setup_media_copy() {
     _csi();
     _char('?');
-    _parm(2);
+    _parm(2);   // MC: Media Copy, "2" means send graphics to host, not printer
     _final("i");
     
     // DECGEPM: Graphics Expanded Print Mode (not used by Level 2 Graphics)
@@ -250,13 +254,77 @@ void vt_stream::mediacopy_to_host()
     sm('?', 46);		// Set: Include background, Reset: Omit bg
     // DECGRPM: Print Graphics Rotated Print Mode (also sets ANSI grid size)
     rm('?', 47);		// Set: Landscape, Reset: Portrait (shrunk)
+}
+    
 
-    //    dcs("p S(H)");		// Send screen hardcopy (using ReGIS mode)
+char *vt_stream::receive_media_copy() {
+  // Read stdin and return DCS data received on stdin as a malloc'd string.
 
-    dcs("p S(H(P[0,0][390,0][410,40]))");	// Send a cropped version for debugging
+  // Nota Bene:
+  // * The Esc P at the start and Esc \ at the end will be missing. 
+  // * The result must be freed by the calling routine.
+  /* * The terminal must be in cbreak or raw mode (see setuptty.c) */
 
-    // XXXX and this is where we would receive the sixel data.
+  // Since media copy is not delimited, we look for the DCS string
+  // (Esc P) that starts the sixel data. The VT340 in Level 2 sixel
+  // mode, actually always sends a string terminator, a carriage
+  // return, and sets the DPI before the sixel data, so we have to
+  // skip over those. (Esc \ CR Esc [ 2 SP I). 
 
+  // Side note: Expecting Esc P not a bug
+  //
+  // * This code does not handle 8-bit DCS (0x90) and ST (0x9C). The
+  //   VT340 documentation states that Media Copy will never generate
+  //   sixels using those characters, even in 8-bit mode. This has
+  //   been confirmed on hackerb9's vt340).
+
+  FILE *stream;
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t nread;
+  
+  stream = stdin;
+  int delim='\e';		/* Chop up input on Esc */
+
+  /* Read data from terminal until next Esc character. */
+  char c = '\0';
+  while (c != 'P') {
+    /* Skip everything until we get to a Device Control String (Esc P) */
+    nread = getdelim(&line, &len, delim, stream); 
+    if (nread == -1) {perror("receive_media_copy, getdelim"); _exit(1);}
+    c = getchar(); // Character after the Esc ("P" for DCS string)
+  }
+
+  /* We got Esc P, now read the rest of the string up to the first Esc */
+  nread = getdelim(&line, &len, delim, stream); 
+  if (nread == -1) {perror("receive_media_copy, getdelim"); _exit(1);}
+  c = getchar(); // Character after the Esc ("\" for String Terminator)
+#ifdef DEBUG
+  if (c != '\\') {fprintf(stderr, "BUG! DCS should always end with Esc \\\n");}
+#endif
+
+  return line;
+}
+
+void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int y2) {
+  /* x1,y1 - x2,y2: Area to copy, 0,0 is upper left corner */
+  char *regis_h;		/* regis select rectangle to print */
+  asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
+
+  // Send sixel "hard copy" to host using REGIS
+  dcs(regis_h);
+  fflush(stdout);
+
+  char *buf = receive_media_copy();
+
+  FILE *fp = fopen(filename, "w");
+  if (!fp) { perror(filename);  _exit(1); } /* Flush stdout of REGIS MC */
+  
+  fprintf(fp, "\eP%s\e\\", buf);
+  
+  if (buf) { free(buf); buf=NULL; }
+  if (regis_h) { free(regis_h); regis_h=NULL; }
+  fclose(fp);
 }
 
 
