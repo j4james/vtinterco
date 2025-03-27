@@ -49,8 +49,12 @@ public:
     void write(const std::string_view s);
     void write_double_width(const std::string_view s);
     void write_double_height(const std::string_view s);
-    void mediacopy_to_host();
     void flush();
+
+    char *receive_media_copy();
+    void setup_media_copy();
+    void mediacopy_to_host();
+    void save_region_to_file(char *filename, int x1, int y1, int x2, int y2);
 
 private:
     void _csi();
