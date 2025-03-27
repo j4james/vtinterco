@@ -232,6 +232,34 @@ void vt_stream::write_double_height(const std::string_view s)
     _string(s);
 }
 
+void vt_stream::mediacopy_to_host()
+{
+    // MC: Media Copy, "2" means send graphics to host, not printer
+    _csi();
+    _char('?');
+    _parm(2);
+    _final("i");
+    
+    // DECGEPM: Graphics Expanded Print Mode (not used by Level 2 Graphics)
+    sm('?', 43);		// Set: 1600x480, Reset: 800x240
+    // DECGPCM: Print Graphics Color Mode
+    sm('?', 44);		// Set: Color, Reset: B&W
+    // DECGPCS: Print Graphics Color Syntax
+    sm('?', 45);		// Set: RGB, Reset: HLS
+    // DECGPBM: Print Graphics Background Mode
+    sm('?', 46);		// Set: Include background, Reset: Omit bg
+    // DECGRPM: Print Graphics Rotated Print Mode (also sets ANSI grid size)
+    rm('?', 47);		// Set: Landscape, Reset: Portrait (shrunk)
+
+    //    dcs("p S(H)");		// Send screen hardcopy (using ReGIS mode)
+
+    dcs("p S(H(P[0,0][390,0][410,40]))");	// Send a cropped version for debugging
+
+    // XXXX and this is where we would receive the sixel data.
+
+}
+
+
 void vt_stream::flush()
 {
     if (_buffer_index) {
