@@ -49,6 +49,7 @@ public:
     void write(const std::string_view s);
     void write_double_width(const std::string_view s);
     void write_double_height(const std::string_view s);
+    void mediacopy_to_host();
     void flush();
 
 private:
