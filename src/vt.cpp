@@ -161,11 +161,57 @@ void vt_stream::decrqm(const char prefix, const vt_parm mode)
     _final("$p");
 }
 
-void vt_stream::decrqss(const std::string_view setting)
+std::string_view vt_stream::vt_response(const std::string_view final)
 {
+    // Read a string from the terminal until the string "final" is seen.
+    // The entire string is returned.
+
+    // XXX This ought to have a timeout.
+    //     termios cc[VTIME] = 10;
+    //     termios cc[VMIN] = 0;
+
+    int state=0, goal=final.length();
+    int c;
+    std::string buffer;
+
+    while (!buffer.ends_with(final)) {
+	if (read(STDIN_FILENO, &c, 1))
+	    buffer += c;
+	else
+	    break;		// Timeout
+    }
+    return buffer;
+}
+
+void vt_stream::decrqss(const std::string_view final)
+{
+    // Sends the DECRQSS sequence for final, does not return results
+    // Result printed to stdin is in the DECRPSS format: DCS Ps $ r D...D ST
+    //        Where Ps is 1 if the request is valid, 0 otherwise;
+    //          and D...D is the current setting + the final.
     _string("\033P$q");
-    _string(setting);
+    _string(final);
     _string("\033\\");
+}
+
+std::string_view vt_stream::read_decrqss(const std::string_view final)
+{
+    // Request the status of a VT setting whose esc seq ends in `final`.
+    // Returned string is the current setting + the final.
+    _string("\033P$q");
+    _string(final);
+    _string("\033\\");
+
+    std::string r = std::string(vt_response("\033\\"));
+
+    // If valid response, return just the data D...D + the 'final'.
+    if (r.starts_with("\033P1$r") && r.ends_with("\033\\") ) {
+	r = r.substr(6, r.length()-2);
+    }
+    else {
+	r = {};
+    }
+    return r;
 }
 
 void vt_stream::decac(const vt_parm a, const vt_parm b, const vt_parm c)
@@ -195,6 +241,25 @@ void vt_stream::decswt(const std::string_view s)
     write(s);
     _string("\033\\");
 }
+
+void vt_stream::decsasd(const vt_parm Ps)
+{
+    // Select Active Status Display
+    // 0: Send data to main display; 1: to status line only.
+    _csi();
+    _parm(Ps);
+    _final("$}");
+}
+
+void vt_stream::decssdt(const vt_parm Ps)
+{
+    // Select Status Line Type
+    // 0: None; 1: Indicator; 2: Host-writable
+    _csi();
+    _parm(Ps);
+    _final("$~");
+}
+
 
 void vt_stream::sixel(const std::string_view s)
 {
@@ -238,7 +303,8 @@ void vt_stream::mediacopy_to_host()
     save_region_to_file("screenshot.six", 390, 0, 410, 40);
 }
 
-void vt_stream::setup_media_copy() {
+void vt_stream::setup_media_copy()
+{
     _csi();
     _char('?');
     _parm(2);   // MC: Media Copy, "2" means send graphics to host, not printer
@@ -257,7 +323,8 @@ void vt_stream::setup_media_copy() {
 }
     
 
-char *vt_stream::receive_media_copy() {
+char *vt_stream::receive_media_copy() 
+{
   // Read stdin and return DCS data received on stdin as a malloc'd string.
 
   // Nota Bene:
@@ -305,32 +372,41 @@ char *vt_stream::receive_media_copy() {
   return line;
 }
 
+void vt_stream::set_status(std::string s)
+{
+    decsasd(1);
+    std::cout << s;
+    decsasd(0);
+}
+
+
 void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int y2) {
-  /* x1,y1 - x2,y2: Area to copy, 0,0 is upper left corner */
-  char *regis_h;		/* regis select rectangle to print */
-  asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
-
-  // Send sixel "hard copy" to host using REGIS
-  dcs(regis_h);
-  fflush(stdout);
-
-  char *buf = receive_media_copy();
 
   FILE *fp = fopen(filename, "w");
   if (!fp) { perror(filename);  _exit(1); } /* Flush stdout of REGIS MC */
-  
+
   /* x1,y1 - x2,y2: Area to copy, 0,0 is upper left corner */
   char *regis_h;		/* regis select rectangle to print */
   asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
 
+  // Save setting for status line
+  std::string_view old_ssdt = read_decrqss("$~");
+
+  using namespace std::string_literals;
+  std::string statusline =
+      "Saving screenshot to file "s +
+      std::string(filename);
+  set_status(statusline);
+
   // Send sixel "hard copy" to host using REGIS
   dcs(regis_h);
-  flush();
-
+  vtout.flush();
   char *buf = receive_media_copy();
-
   fprintf(fp, "\eP%s\\", buf);
   
+  _csi();
+  _string(old_ssdt);
+
   if (buf) { free(buf); buf=NULL; }
   if (regis_h) { free(regis_h); regis_h=NULL; }
   fclose(fp);

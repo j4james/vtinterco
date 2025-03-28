@@ -39,18 +39,22 @@ public:
     void decdhlb();
     void decdwl();
     void decrqm(const char prefix, const vt_parm mode);
+    std::string_view vt_response(const std::string_view final);
+    std::string_view read_decrqss(const std::string_view setting);
     void decrqss(const std::string_view setting);
     void decac(const vt_parm a, const vt_parm b, const vt_parm c);
     void decctr(const std::string_view colors);
     void decctr(const vt_parm type);
     void decswt(const std::string_view s = {});
+    void decssdt(const vt_parm Ps);
+    void decsasd(const vt_parm Ps);
     void sixel(const std::string_view s);
     void dcs(const std::string_view s);
     void write(const std::string_view s);
     void write_double_width(const std::string_view s);
     void write_double_height(const std::string_view s);
     void flush();
-
+    void set_status(std::string s);
     char *receive_media_copy();
     void setup_media_copy();
     void mediacopy_to_host();
