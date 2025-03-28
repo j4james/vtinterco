@@ -4,6 +4,7 @@
 
 #include "vt.h"
 
+#include "capabilities.h"
 #include "debug.h"
 
 #include <chrono>
@@ -166,16 +167,16 @@ std::string_view vt_stream::vt_response(const std::string_view final)
     // Read a string from the terminal until the string "final" is seen.
     // The entire string is returned.
 
-    // XXX This ought to have a timeout.
+    // XXX This ought to timeout. Termios works for Linux. What about Windows?
     //     termios cc[VTIME] = 10;
     //     termios cc[VMIN] = 0;
 
-    int state=0, goal=final.length();
     int c;
-    std::string buffer;
+    std::string buffer = {};
 
+    vtout.flush();
     while (!buffer.ends_with(final)) {
-	if (read(STDIN_FILENO, &c, 1))
+	if ( (c = getchar()) != EOF )
 	    buffer += c;
 	else
 	    break;		// Timeout
@@ -365,9 +366,6 @@ char *vt_stream::receive_media_copy()
   nread = getdelim(&line, &len, delim, stdin); 
   if (nread == -1) {perror("receive_media_copy, getdelim"); _exit(1);}
   c = getchar(); // Character after the Esc ("\" for String Terminator)
-#ifdef DEBUG
-  if (c != '\\') {fprintf(stderr, "BUG! DCS should always end with Esc \\\n");}
-#endif
 
   return line;
 }
@@ -375,7 +373,7 @@ char *vt_stream::receive_media_copy()
 void vt_stream::set_status(std::string s)
 {
     decsasd(1);
-    std::cout << s;
+    _string(s);
     decsasd(0);
 }
 
@@ -390,13 +388,21 @@ void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int 
   asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
 
   // Save setting for status line
-  std::string_view old_ssdt = read_decrqss("$~");
+  capabilities cap;
+  std::string_view old_ssdt = cap.query_setting("$~");
+  fprintf(fp, "query_settings: %s\n", old_ssdt);
+  fflush(fp);
 
-  using namespace std::string_literals;
-  std::string statusline =
-      "Saving screenshot to file "s +
-      std::string(filename);
-  set_status(statusline);
+  std::string_view oldold_ssdt = read_decrqss("$~");
+  fprintf(fp, "read_decrqss: %s\n", oldold_ssdt);
+
+  if (old_ssdt.length() > 0) { 
+      using namespace std::string_literals;
+      std::string statusline =
+	  "Saving screenshot to file '"s +
+	  std::string(filename) + "'";
+      set_status(statusline);
+  }
 
   // Send sixel "hard copy" to host using REGIS
   dcs(regis_h);
@@ -404,8 +410,11 @@ void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int 
   char *buf = receive_media_copy();
   fprintf(fp, "\eP%s\\", buf);
   
-  _csi();
-  _string(old_ssdt);
+  if (old_ssdt.length() > 0) {
+      set_status({});
+      _csi();
+      _string(old_ssdt);
+  }
 
   if (buf) { free(buf); buf=NULL; }
   if (regis_h) { free(regis_h); regis_h=NULL; }
