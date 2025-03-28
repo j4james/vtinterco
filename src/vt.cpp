@@ -168,8 +168,7 @@ std::string_view vt_stream::vt_response(const std::string_view final)
     // The entire string is returned.
 
     // XXX This ought to timeout. Termios works for Linux. What about Windows?
-    //     termios cc[VTIME] = 10;
-    //     termios cc[VMIN] = 0;
+    //     termios cc[VTIME] = 10;  termios cc[VMIN] = 0;
 
     int c;
     std::string buffer = {};
@@ -179,7 +178,7 @@ std::string_view vt_stream::vt_response(const std::string_view final)
 	if ( (c = getchar()) != EOF )
 	    buffer += c;
 	else
-	    break;		// Timeout
+	    break;		// Timeout, error, or EOF
     }
     return buffer;
 }
@@ -378,7 +377,7 @@ void vt_stream::set_status(std::string s)
 }
 
 
-void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int y2) {
+void vt_stream::save_region_to_file(const char *filename, int x1, int y1, int x2, int y2) {
 
   FILE *fp = fopen(filename, "w");
   if (!fp) { perror(filename);  _exit(1); } /* Flush stdout of REGIS MC */
@@ -390,16 +389,10 @@ void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int 
   // Save setting for status line
   capabilities cap;
   std::string_view old_ssdt = cap.query_setting("$~");
-  fprintf(fp, "query_settings: %s\n", old_ssdt);
-  fflush(fp);
-
-  std::string_view oldold_ssdt = read_decrqss("$~");
-  fprintf(fp, "read_decrqss: %s\n", oldold_ssdt);
-
-  if (old_ssdt.length() > 0) { 
-      using namespace std::string_literals;
+  if (!old_ssdt.empty()) { 
+      decssdt(2);		// Show our own status line
       std::string statusline =
-	  "Saving screenshot to file '"s +
+	  std::string("Saving screenshot to file '") +
 	  std::string(filename) + "'";
       set_status(statusline);
   }
@@ -410,7 +403,7 @@ void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int 
   char *buf = receive_media_copy();
   fprintf(fp, "\eP%s\\", buf);
   
-  if (old_ssdt.length() > 0) {
+  if (!old_ssdt.empty()) {
       set_status({});
       _csi();
       _string(old_ssdt);
