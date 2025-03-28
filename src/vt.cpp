@@ -261,9 +261,9 @@ char *vt_stream::receive_media_copy() {
   // Read stdin and return DCS data received on stdin as a malloc'd string.
 
   // Nota Bene:
-  // * The Esc P at the start and Esc \ at the end will be missing. 
+  // * DCS (Esc P) at the start and ST's \ at the end will be missing. 
   // * The result must be freed by the calling routine.
-  /* * The terminal must be in cbreak or raw mode (see setuptty.c) */
+  /* * The terminal must be in cbreak or raw mode */
 
   // Since media copy is not delimited, we look for the DCS string
   // (Esc P) that starts the sixel data. The VT340 in Level 2 sixel
@@ -283,20 +283,19 @@ char *vt_stream::receive_media_copy() {
   size_t len = 0;
   ssize_t nread;
   
-  stream = stdin;
   int delim='\e';		/* Chop up input on Esc */
 
   /* Read data from terminal until next Esc character. */
   char c = '\0';
   while (c != 'P') {
     /* Skip everything until we get to a Device Control String (Esc P) */
-    nread = getdelim(&line, &len, delim, stream); 
+    nread = getdelim(&line, &len, delim, stdin); 
     if (nread == -1) {perror("receive_media_copy, getdelim"); _exit(1);}
     c = getchar(); // Character after the Esc ("P" for DCS string)
   }
 
   /* We got Esc P, now read the rest of the string up to the first Esc */
-  nread = getdelim(&line, &len, delim, stream); 
+  nread = getdelim(&line, &len, delim, stdin); 
   if (nread == -1) {perror("receive_media_copy, getdelim"); _exit(1);}
   c = getchar(); // Character after the Esc ("\" for String Terminator)
 #ifdef DEBUG
@@ -320,7 +319,17 @@ void vt_stream::save_region_to_file(char *filename, int x1, int y1, int x2, int 
   FILE *fp = fopen(filename, "w");
   if (!fp) { perror(filename);  _exit(1); } /* Flush stdout of REGIS MC */
   
-  fprintf(fp, "\eP%s\e\\", buf);
+  /* x1,y1 - x2,y2: Area to copy, 0,0 is upper left corner */
+  char *regis_h;		/* regis select rectangle to print */
+  asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
+
+  // Send sixel "hard copy" to host using REGIS
+  dcs(regis_h);
+  flush();
+
+  char *buf = receive_media_copy();
+
+  fprintf(fp, "\eP%s\\", buf);
   
   if (buf) { free(buf); buf=NULL; }
   if (regis_h) { free(regis_h); regis_h=NULL; }
