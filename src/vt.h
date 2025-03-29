@@ -44,12 +44,20 @@ public:
     void decctr(const std::string_view colors);
     void decctr(const vt_parm type);
     void decswt(const std::string_view s = {});
+    void decssdt(const vt_parm Ps);
+    void decsasd(const vt_parm Ps);
     void sixel(const std::string_view s);
     void dcs(const std::string_view s);
     void write(const std::string_view s);
     void write_double_width(const std::string_view s);
     void write_double_height(const std::string_view s);
     void flush();
+    void set_status(std::string s);
+    char *receive_media_copy();
+    void setup_media_copy();
+    void mediacopy_to_host();
+    void save_region_to_file(const char *filename, int x1, int y1, int x2, int y2);
+    void save_screen_to_file(const char *filename);
 
 private:
     void _csi();

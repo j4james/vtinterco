@@ -4,6 +4,7 @@
 
 #include "vt.h"
 
+#include "capabilities.h"
 #include "debug.h"
 
 #include <chrono>
@@ -161,10 +162,10 @@ void vt_stream::decrqm(const char prefix, const vt_parm mode)
     _final("$p");
 }
 
-void vt_stream::decrqss(const std::string_view setting)
+void vt_stream::decrqss(const std::string_view final)
 {
     _string("\033P$q");
-    _string(setting);
+    _string(final);
     _string("\033\\");
 }
 
@@ -195,6 +196,25 @@ void vt_stream::decswt(const std::string_view s)
     write(s);
     _string("\033\\");
 }
+
+void vt_stream::decsasd(const vt_parm Ps)
+{
+    // Select Active Status Display
+    // 0: Send data to main display; 1: to status line only.
+    _csi();
+    _parm(Ps);
+    _final("$}");
+}
+
+void vt_stream::decssdt(const vt_parm Ps)
+{
+    // Select Status Line Type
+    // 0: None; 1: Indicator; 2: Host-writable
+    _csi();
+    _parm(Ps);
+    _final("$~");
+}
+
 
 void vt_stream::sixel(const std::string_view s)
 {
@@ -231,6 +251,133 @@ void vt_stream::write_double_height(const std::string_view s)
     decdhlb();
     _string(s);
 }
+
+void vt_stream::mediacopy_to_host()
+{
+    setup_media_copy();
+    save_screen_to_file("screenshot.six");
+}
+
+void vt_stream::setup_media_copy()
+{
+    _csi();
+    _char('?');
+    _parm(2);   // MC: Media Copy, "2" means send graphics to host, not printer
+    _final("i");
+    
+    // DECGEPM: Graphics Expanded Print Mode (not used by Level 2 Graphics)
+    sm('?', 43);		// Set: 1600x480, Reset: 800x240
+    // DECGPCM: Print Graphics Color Mode
+    sm('?', 44);		// Set: Color, Reset: B&W
+    // DECGPCS: Print Graphics Color Syntax
+    sm('?', 45);		// Set: RGB, Reset: HLS
+    // DECGPBM: Print Graphics Background Mode
+    sm('?', 46);		// Set: Include background, Reset: Omit bg
+    // DECGRPM: Print Graphics Rotated Print Mode (also sets ANSI grid size)
+    rm('?', 47);		// Set: Landscape, Reset: Portrait (shrunk)
+}
+    
+
+char *vt_stream::receive_media_copy() 
+{
+  // Read stdin and return DCS data received on stdin as a malloc'd string.
+
+  // Nota Bene:
+  // * DCS (Esc P) at the start and ST's \ at the end will be missing. 
+  // * The result must be freed by the calling routine.
+  /* * The terminal must be in cbreak or raw mode */
+
+  // Since media copy is not delimited, we look for the DCS string
+  // (Esc P) that starts the sixel data. The VT340 in Level 2 sixel
+  // mode, actually always sends a string terminator, a carriage
+  // return, and sets the DPI before the sixel data, so we have to
+  // skip over those. (Esc \ CR Esc [ 2 SP I). 
+
+  // Side note: Expecting Esc P not a bug
+  //
+  // * This code does not handle 8-bit DCS (0x90) and ST (0x9C). The
+  //   VT340 documentation states that Media Copy will never generate
+  //   sixels using those characters, even in 8-bit mode. This has
+  //   been confirmed on hackerb9's vt340).
+
+  FILE *stream;
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t nread;
+  
+  int delim='\e';		/* Chop up input on Esc */
+
+  /* Read data from terminal until next Esc character. */
+  char c = '\0';
+  while (c != 'P') {
+    /* Skip everything until we get to a Device Control String (Esc P) */
+    nread = getdelim(&line, &len, delim, stdin); 
+    if (nread == -1) {perror("receive_media_copy, getdelim"); _exit(1);}
+    c = getchar(); // Character after the Esc ("P" for DCS string)
+  }
+
+  /* We got Esc P, now read the rest of the string up to the first Esc */
+  nread = getdelim(&line, &len, delim, stdin); 
+  if (nread == -1) {perror("receive_media_copy, getdelim"); _exit(1);}
+  c = getchar(); // Character after the Esc ("\" for String Terminator)
+
+  return line;
+}
+
+void vt_stream::set_status(std::string s)
+{
+    decsasd(1);
+    _string(s);
+    decsasd(0);
+}
+
+void vt_stream::save_screen_to_file(const char *filename)
+{
+    save_region_to_file(filename, 0, 0, 0, 0);
+}
+
+void vt_stream::save_region_to_file(const char *filename, int x1, int y1, int x2, int y2) {
+
+  FILE *fp = fopen(filename, "w");
+  if (!fp) { perror(filename);  _exit(1); } /* Flush stdout of REGIS MC */
+
+  char *regis_h;		/* regis select rectangle to print */
+
+  if ( x2 <= x1 || y2 <= y1 ) {
+      asprintf(&regis_h, "p S(H)");
+  } else {
+      /* x1,y1 - x2,y2: Area to copy, 0,0 is upper left corner */
+      asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
+  }
+  
+  // Save setting for status line
+  capabilities cap;
+  std::string_view old_ssdt = cap.query_setting("$~");
+  if (!old_ssdt.empty()) { 
+      decssdt(2);		// Show our own status line
+      std::string statusline =
+	  std::string("Saving screenshot to file '") +
+	  std::string(filename) + "'";
+      set_status(statusline);
+  }
+
+  // Send sixel "hard copy" to host using REGIS
+  dcs(regis_h);
+  vtout.flush();
+  char *buf = receive_media_copy();
+  fprintf(fp, "\eP%s\\", buf);
+  
+  if (!old_ssdt.empty()) {
+      set_status({});
+      _csi();
+      _string(old_ssdt);
+  }
+
+  if (buf) { free(buf); buf=NULL; }
+  if (regis_h) { free(regis_h); regis_h=NULL; }
+  fclose(fp);
+}
+
 
 void vt_stream::flush()
 {

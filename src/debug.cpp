@@ -126,6 +126,10 @@ int debug::getch(std::function<int()>&& key_supplier)
 
     for (;;) {
         auto ch = key_supplier();
+        if (ch == 16) {		// Ctrl+P to print to a file
+	  vtout.mediacopy_to_host();
+	  continue;
+	} 
         if (ch != 18) return ch;
 
         const auto capture_time = std::time(nullptr) - 1740182400;
