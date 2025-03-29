@@ -39,8 +39,6 @@ public:
     void decdhlb();
     void decdwl();
     void decrqm(const char prefix, const vt_parm mode);
-    std::string_view vt_response(const std::string_view final);
-    std::string_view read_decrqss(const std::string_view setting);
     void decrqss(const std::string_view setting);
     void decac(const vt_parm a, const vt_parm b, const vt_parm c);
     void decctr(const std::string_view colors);
@@ -58,7 +56,8 @@ public:
     char *receive_media_copy();
     void setup_media_copy();
     void mediacopy_to_host();
-    void save_region_to_file(char *filename, int x1, int y1, int x2, int y2);
+    void save_region_to_file(const char *filename, int x1, int y1, int x2, int y2);
+    void save_screen_to_file(const char *filename);
 
 private:
     void _csi();

@@ -162,56 +162,11 @@ void vt_stream::decrqm(const char prefix, const vt_parm mode)
     _final("$p");
 }
 
-std::string_view vt_stream::vt_response(const std::string_view final)
-{
-    // Read a string from the terminal until the string "final" is seen.
-    // The entire string is returned.
-
-    // XXX This ought to timeout. Termios works for Linux. What about Windows?
-    //     termios cc[VTIME] = 10;  termios cc[VMIN] = 0;
-
-    int c;
-    std::string buffer = {};
-
-    vtout.flush();
-    while (!buffer.ends_with(final)) {
-	if ( (c = getchar()) != EOF )
-	    buffer += c;
-	else
-	    break;		// Timeout, error, or EOF
-    }
-    return buffer;
-}
-
 void vt_stream::decrqss(const std::string_view final)
 {
-    // Sends the DECRQSS sequence for final, does not return results
-    // Result printed to stdin is in the DECRPSS format: DCS Ps $ r D...D ST
-    //        Where Ps is 1 if the request is valid, 0 otherwise;
-    //          and D...D is the current setting + the final.
     _string("\033P$q");
     _string(final);
     _string("\033\\");
-}
-
-std::string_view vt_stream::read_decrqss(const std::string_view final)
-{
-    // Request the status of a VT setting whose esc seq ends in `final`.
-    // Returned string is the current setting + the final.
-    _string("\033P$q");
-    _string(final);
-    _string("\033\\");
-
-    std::string r = std::string(vt_response("\033\\"));
-
-    // If valid response, return just the data D...D + the 'final'.
-    if (r.starts_with("\033P1$r") && r.ends_with("\033\\") ) {
-	r = r.substr(6, r.length()-2);
-    }
-    else {
-	r = {};
-    }
-    return r;
 }
 
 void vt_stream::decac(const vt_parm a, const vt_parm b, const vt_parm c)
@@ -401,7 +356,6 @@ void vt_stream::save_region_to_file(const char *filename, int x1, int y1, int x2
   if (!old_ssdt.empty()) { 
       decssdt(2);		// Show our own status line
       std::string statusline =
-	  std::string(regis_h) +
 	  std::string("Saving screenshot to file '") +
 	  std::string(filename) + "'";
       set_status(statusline);
