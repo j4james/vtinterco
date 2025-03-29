@@ -300,7 +300,7 @@ void vt_stream::write_double_height(const std::string_view s)
 void vt_stream::mediacopy_to_host()
 {
     setup_media_copy();
-    save_region_to_file("screenshot.six", 390, 0, 410, 40);
+    save_screen_to_file("screenshot.six");
 }
 
 void vt_stream::setup_media_copy()
@@ -376,22 +376,32 @@ void vt_stream::set_status(std::string s)
     decsasd(0);
 }
 
+void vt_stream::save_screen_to_file(const char *filename)
+{
+    save_region_to_file(filename, 0, 0, 0, 0);
+}
 
 void vt_stream::save_region_to_file(const char *filename, int x1, int y1, int x2, int y2) {
 
   FILE *fp = fopen(filename, "w");
   if (!fp) { perror(filename);  _exit(1); } /* Flush stdout of REGIS MC */
 
-  /* x1,y1 - x2,y2: Area to copy, 0,0 is upper left corner */
   char *regis_h;		/* regis select rectangle to print */
-  asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
 
+  if ( x2 <= x1 || y2 <= y1 ) {
+      asprintf(&regis_h, "p S(H)");
+  } else {
+      /* x1,y1 - x2,y2: Area to copy, 0,0 is upper left corner */
+      asprintf(&regis_h, "p S(H(P[0,0])[%d,%d][%d,%d])", x1, y1, x2, y2);
+  }
+  
   // Save setting for status line
   capabilities cap;
   std::string_view old_ssdt = cap.query_setting("$~");
   if (!old_ssdt.empty()) { 
       decssdt(2);		// Show our own status line
       std::string statusline =
+	  std::string(regis_h) +
 	  std::string("Saving screenshot to file '") +
 	  std::string(filename) + "'";
       set_status(statusline);
